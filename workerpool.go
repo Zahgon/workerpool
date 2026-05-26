@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gammazero/deque"
@@ -18,31 +17,12 @@ var ErrStopped = errors.New("submitting work to stopped workerpool")
 // execute tasks concurrently. When there are no incoming tasks, workers are
 // gradually stopped until there are no remaining workers.
 func New(maxWorkers int, options ...Option) *WorkerPool {
+	_ = "STUB: not implemented"
 	// There must be at least one worker.
-	if maxWorkers < 1 {
-		maxWorkers = 1
-	}
-
-	cfg := config{
-		idleTimeout: DefaultIdleTimeout,
-	}
-	for _, opt := range options {
-		opt(&cfg)
-	}
-
-	pool := &WorkerPool{
-		maxWorkers:  maxWorkers,
-		taskQueue:   make(chan func()),
-		workerQueue: make(chan func()),
-		stopSignal:  make(chan struct{}),
-		stoppedChan: make(chan struct{}),
-	}
-
-	// Start the task dispatcher.
-	go pool.dispatch(cfg.idleTimeout)
-
-	return pool
+	return nil
 }
+
+// Start the task dispatcher.
 
 // WorkerPool is a collection of goroutines, where the number of concurrent
 // goroutines processing requests does not exceed the specified maximum.
@@ -61,9 +41,7 @@ type WorkerPool struct {
 }
 
 // Size returns the maximum number of concurrent workers.
-func (p *WorkerPool) Size() int {
-	return p.maxWorkers
-}
+func (p *WorkerPool) Size() int { _ = "STUB: not implemented"; return 0 }
 
 // Stop stops the worker pool and waits for only currently running tasks to
 // complete. Pending tasks that are not currently running are abandoned. Tasks
@@ -73,22 +51,22 @@ func (p *WorkerPool) Size() int {
 // dispatcher, Stop() or StopWait() should be called when the worker pool is no
 // longer needed.
 func (p *WorkerPool) Stop() {
-	p.stop(false)
+	_ = "STUB: not implemented"
+
+	// StopWait stops the worker pool and waits for all queued tasks tasks to
+	// complete. No additional tasks may be submitted, but all pending tasks are
+	// executed by workers before this function returns.
+	return
 }
 
-// StopWait stops the worker pool and waits for all queued tasks tasks to
-// complete. No additional tasks may be submitted, but all pending tasks are
-// executed by workers before this function returns.
 func (p *WorkerPool) StopWait() {
-	p.stop(true)
+	_ = "STUB: not implemented"
+
+	// Stopped returns true if this worker pool has been stopped.
+	return
 }
 
-// Stopped returns true if this worker pool has been stopped.
-func (p *WorkerPool) Stopped() bool {
-	p.stopLock.Lock()
-	defer p.stopLock.Unlock()
-	return p.stopped
-}
+func (p *WorkerPool) Stopped() bool { _ = "STUB: not implemented"; return false }
 
 // Do enqueues a function for a worker to execute. Returns ErrStopped if the
 // worker pool is stopped.
@@ -110,45 +88,18 @@ func (p *WorkerPool) Stopped() bool {
 // period until there are no more idle workers. Since the time to start new
 // goroutines is not significant, there is no need to retain idle workers
 // indefinitely.
-func (p *WorkerPool) Do(task func()) (err error) {
-	if task == nil {
-		return
-	}
-	defer func() {
-		if recover() != nil {
-			err = ErrStopped
-		}
-	}()
-	p.taskQueue <- task
-	return
-}
+func (p *WorkerPool) Do(task func()) (err error) { _ = "STUB: not implemented"; return nil }
 
 // Submit enqueues the given function without blocking. Panics if the worker
 // pool is stopped.
-func (p *WorkerPool) Submit(task func()) {
-	if err := p.Do(task); err != nil {
-		panic(err)
-	}
-}
+func (p *WorkerPool) Submit(task func()) { _ = "STUB: not implemented"; return }
 
 // SubmitWait enqueues the given function, without blocking, and waits for it
 // to be executed. Panics if the worker pool is stopped.
-func (p *WorkerPool) SubmitWait(task func()) {
-	if task == nil {
-		return
-	}
-	doneChan := make(chan struct{})
-	p.Submit(func() {
-		task()
-		close(doneChan)
-	})
-	<-doneChan
-}
+func (p *WorkerPool) SubmitWait(task func()) { _ = "STUB: not implemented"; return }
 
 // WaitingQueueSize returns the count of tasks in the waiting queue.
-func (p *WorkerPool) WaitingQueueSize() int {
-	return int(atomic.LoadInt32(&p.waiting))
-}
+func (p *WorkerPool) WaitingQueueSize() int { _ = "STUB: not implemented"; return 0 }
 
 // Pause causes all workers to wait on the given Context, thereby making them
 // unavailable to run tasks. Pause returns when all workers are waiting. Tasks
@@ -162,167 +113,67 @@ func (p *WorkerPool) WaitingQueueSize() int {
 //
 // When the workerpool is stopped, workers are unpaused and queued tasks are
 // executed during StopWait.
-func (p *WorkerPool) Pause(ctx context.Context) {
-	p.stopLock.Lock()
-	defer p.stopLock.Unlock()
-	if p.stopped {
-		return
-	}
-	ready := new(sync.WaitGroup)
-	ready.Add(p.maxWorkers)
-	for i := 0; i < p.maxWorkers; i++ {
-		p.taskQueue <- func() {
-			ready.Done()
-			select {
-			case <-ctx.Done():
-			case <-p.stopSignal:
-			}
-		}
-	}
-	// Wait for workers to all be paused
-	ready.Wait()
-}
+func (p *WorkerPool) Pause(ctx context.Context) { _ = "STUB: not implemented"; return }
+
+// Wait for workers to all be paused
 
 // dispatch sends the next queued task to an available worker.
-func (p *WorkerPool) dispatch(idleTimeout time.Duration) {
-	defer close(p.stoppedChan)
-	var idle bool
-	var idleTO <-chan time.Time
-	var workerCount int
-	var wg sync.WaitGroup
+func (p *WorkerPool) dispatch(idleTimeout time.Duration) { _ = "STUB: not implemented"; return }
 
-	var timeout *time.Timer
-	if idleTimeout > 0 {
-		timeout = time.NewTimer(idleTimeout)
-		defer timeout.Stop()
-		idleTO = timeout.C
-	}
+// As long as tasks are in the waiting queue, incoming tasks are put
+// into the waiting queue and tasks to run are taken from the waiting
+// queue. Once the waiting queue is empty, then go back to submitting
+// incoming tasks directly to available workers.
 
-Loop:
-	for {
-		// As long as tasks are in the waiting queue, incoming tasks are put
-		// into the waiting queue and tasks to run are taken from the waiting
-		// queue. Once the waiting queue is empty, then go back to submitting
-		// incoming tasks directly to available workers.
-		if p.waitingQueue.Len() != 0 {
-			if !p.processWaitingQueue() {
-				break Loop
-			}
-			continue
-		}
+// Got a task to do.
 
-		select {
-		case task, ok := <-p.taskQueue:
-			if !ok {
-				break Loop
-			}
-			// Got a task to do.
-			select {
-			case p.workerQueue <- task:
-			default:
-				// Create a new worker, if not at max.
-				if workerCount < p.maxWorkers {
-					wg.Add(1)
-					go worker(task, p.workerQueue, &wg)
-					workerCount++
-				} else {
-					// Enqueue task to be executed by next available worker.
-					p.waitingQueue.PushBack(task)
-					atomic.StoreInt32(&p.waiting, int32(p.waitingQueue.Len()))
-				}
-			}
-			idle = false
-		case <-idleTO:
-			// Timed out waiting for work to arrive. Kill a ready worker if
-			// pool has been idle for a whole timeout.
-			if idle && workerCount > 0 {
-				if p.killIdleWorker() {
-					workerCount--
-				}
-			}
-			idle = true
-			timeout.Reset(idleTimeout)
-		}
-	}
+// Create a new worker, if not at max.
 
-	// If instructed to wait, then run tasks that are already queued.
-	if p.wait {
-		p.runQueuedTasks()
-	}
+// Enqueue task to be executed by next available worker.
 
-	// Stop all remaining workers as they become ready.
-	for workerCount > 0 {
-		p.workerQueue <- nil
-		workerCount--
-	}
-	wg.Wait()
-}
+// Timed out waiting for work to arrive. Kill a ready worker if
+// pool has been idle for a whole timeout.
+
+// If instructed to wait, then run tasks that are already queued.
+
+// Stop all remaining workers as they become ready.
 
 // worker executes tasks and stops when it receives a nil task.
 func worker(task func(), workerQueue chan func(), wg *sync.WaitGroup) {
-	for task != nil {
-		task()
-		task = <-workerQueue
-	}
-	wg.Done()
+	_ = "STUB: not implemented"
+	return
 }
 
 // stop tells the dispatcher to exit, and whether or not to complete queued
 // tasks.
-func (p *WorkerPool) stop(wait bool) {
-	p.stopOnce.Do(func() {
-		// Signal that workerpool is stopping, to unpause any paused workers.
-		close(p.stopSignal)
-		// Acquire stopLock to wait for any pause in progress to complete. All
-		// in-progress pauses will complete because the stopSignal unpauses the
-		// workers.
-		p.stopLock.Lock()
-		// The stopped flag prevents any additional paused workers. This makes
-		// it safe to close the taskQueue.
-		p.stopped = true
-		p.stopLock.Unlock()
-		p.wait = wait
-		// Close task queue and wait for currently running tasks to finish.
-		close(p.taskQueue)
-	})
-	<-p.stoppedChan
-}
+func (p *WorkerPool) stop(wait bool) { _ = "STUB: not implemented"; return }
+
+// Signal that workerpool is stopping, to unpause any paused workers.
+
+// Acquire stopLock to wait for any pause in progress to complete. All
+// in-progress pauses will complete because the stopSignal unpauses the
+// workers.
+
+// The stopped flag prevents any additional paused workers. This makes
+// it safe to close the taskQueue.
+
+// Close task queue and wait for currently running tasks to finish.
 
 // processWaitingQueue puts new tasks onto the waiting queue, and removes
 // tasks from the waiting queue as workers become available. Returns false if
 // worker pool is stopped.
-func (p *WorkerPool) processWaitingQueue() bool {
-	select {
-	case task, ok := <-p.taskQueue:
-		if !ok {
-			return false
-		}
-		p.waitingQueue.PushBack(task)
-	case p.workerQueue <- p.waitingQueue.Front():
-		// A worker was ready, so gave task to worker.
-		p.waitingQueue.PopFront()
-	}
-	atomic.StoreInt32(&p.waiting, int32(p.waitingQueue.Len()))
-	return true
-}
+func (p *WorkerPool) processWaitingQueue() bool { _ = "STUB: not implemented"; return false }
 
-func (p *WorkerPool) killIdleWorker() bool {
-	select {
-	case p.workerQueue <- nil:
-		// Sent kill signal to worker.
-		return true
-	default:
-		// No ready workers. All, if any, workers are busy.
-		return false
-	}
-}
+// A worker was ready, so gave task to worker.
+
+func (p *WorkerPool) killIdleWorker() bool { _ = "STUB: not implemented"; return false }
+
+// Sent kill signal to worker.
+
+// No ready workers. All, if any, workers are busy.
 
 // runQueuedTasks removes each task from the waiting queue and gives it to
 // workers until queue is empty.
-func (p *WorkerPool) runQueuedTasks() {
-	for p.waitingQueue.Len() != 0 {
-		// A worker is ready, so give task to worker.
-		p.workerQueue <- p.waitingQueue.PopFront()
-		atomic.StoreInt32(&p.waiting, int32(p.waitingQueue.Len()))
-	}
-}
+func (p *WorkerPool) runQueuedTasks() { _ = "STUB: not implemented"; return }
+
+// A worker is ready, so give task to worker.

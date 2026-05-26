@@ -18,10 +18,4 @@ type Option func(*config)
 // WithIdleTimeout configures the amount of time that the worker pool must be
 // idle before a worker is automatically stopped. If zero or unset the value
 // defaults to DefaultIdleTimeout. A negative value disables the idle timeout.
-func WithIdleTimeout(timeout time.Duration) Option {
-	return func(c *config) {
-		if timeout != 0 {
-			c.idleTimeout = timeout
-		}
-	}
-}
+func WithIdleTimeout(timeout time.Duration) Option { _ = "STUB: not implemented"; return *new(Option) }
